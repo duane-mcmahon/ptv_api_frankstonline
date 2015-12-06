@@ -1,0 +1,249 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no"/>
+    <style type="text/css">
+    html {
+            height: 100% ;
+            width: 100%;
+        }
+
+        body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0
+        }
+
+        #map-canvas {
+            height: 90%;
+            width: 70%;
+            float: left;
+            margin-left: 20px;
+            margin-right: 20px;
+            position: relative;
+
+        }
+        textarea {
+            background-color: lemonchiffon;
+            z-index: 1;
+            position: relative;
+
+        }
+
+    </style>
+    <script type="text/javascript"
+            src="http://maps.googleapis.com/maps/api/js"></script>
+    <script type="text/javascript"
+            src="{% static 'polylineJS.js' %}"></script>
+    <script type="text/javascript">
+
+        window.origin = false;
+
+        window.destination = false;
+
+        window.results = false;
+
+        window.stations = false;
+
+        function initialize() {
+            var mapOptions = {
+                center: new google.maps.LatLng(-37.945082, 145.097350),
+                zoom: 11
+            };
+            var map = new google.maps.Map(document.getElementById("map-canvas"),
+                    mapOptions);
+
+
+            routePath.setMap(map); //variable created in polyLine.js
+
+            var stopsList = [];
+
+            {% autoescape off %}
+                stopsList = {{jdata}};
+            {% endautoescape %}
+
+
+            for (var key in stopsList) {
+
+                if (stopsList.hasOwnProperty(key)) {
+
+
+                    var marker = new google.maps.Marker({
+
+                        position: new google.maps.LatLng(stopsList[key].lat, stopsList[key].lon),
+
+                        map: map,
+
+                        title: stopsList[key].title,
+
+                        stationId: stopsList[key].stopId
+
+                    });
+
+
+                    google.maps.event.addListener(marker, 'click', (function (marker) {
+                        return function () {
+                            fetchItinerary(marker);
+                        }
+                    })(marker));
+
+
+                }
+
+                routePath.setMap(map);
+
+            }
+
+
+        }
+
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+
+        function fetchItinerary(marker) {
+
+            if (window.origin == false && window.destination == false) {
+
+                var response = window.confirm("You have selected:\n" + marker.title + "\nPress OK to confirm that this is your\ndeparture point.")
+
+                if (response == true) {
+
+                    document.getElementById("departurePointLat").value = marker.getPosition().lat();
+
+                    document.getElementById("departurePointLon").value = marker.getPosition().lng();
+
+                    window.origin = true;
+
+                    return;
+
+                }
+            }
+
+            if (window.origin == true && window.destination == false) {
+
+                var response = window.confirm("You have selected: " + marker.title + "\nPlease confirm that this your\ndestination point.");
+                if (response == true) {
+
+
+                    document.getElementById("destinationPointLat").value = marker.getPosition().lat();
+
+                    document.getElementById("destinationPointLon").value = marker.getPosition().lng();
+
+                    document.getElementById("destinationPointId").value = marker.stationId;
+
+                    window.destination = true;
+
+                    return;
+
+                }
+
+
+            }
+
+
+        }
+
+
+
+    Date.prototype.toDateInputValue = (function() {
+    var local = new Date(this);
+    local.setMinutes(this.getMinutes() - this.getTimezoneOffset());
+    return local.toJSON().slice(0,10);
+});
+
+    Date.prototype.toTimeInputValue = (function() {
+
+        var local = new Date(this);
+        return local.toLocaleTimeString();
+
+    });
+
+
+    </script>
+</head>
+
+<body>
+
+<br/>
+
+<form method="post">{% csrf_token %} Date of Travel:
+    <input id="travelDate" type="date" name="travelDate" />
+
+    Time of Departure:
+    <input id="travelTime" type="time" name="travelTime" />
+
+    <input type="hidden" id="departurePointLat" name="departurePointLat" value="" />
+
+    <input type="hidden" id="departurePointLon" name="departurePointLon" value="" />
+
+    <input type="hidden" id="destinationPointLat" name="destinationPointLat" value="" />
+
+    <input type="hidden" id="destinationPointLon" name="destinationPointLon" value="" />
+
+    <input type="hidden" id="destinationPointId" name="destinationPointId" value="" />
+
+    <input type="submit">
+</form>
+<br/>
+
+<div id="map-canvas"></div>
+<label for="summary">Please select the beginning and end points,  <br />
+                     and time (defaults to NOW) of your intended <br /> trip.
+                     The result will appear below.<br />
+
+
+</label>
+  <textarea  name="output" id="summary" rows="13" cols="50" ></textarea>
+    </textarea>
+<script type="application/javascript">
+       function clear(event){
+
+        if(((window.origin == false) && (window.destination == true) ) || ((window.destination == true) && (window.destination == false)) || ((window.destination == false) && (window.destination == false)) ){
+
+            event.preventDefault();
+
+            window.alert("Please select both departure and destination");
+
+            return false;
+
+        }else{
+
+                window.origin = false;
+
+                window.destination = false;
+
+                return true;
+
+        }
+
+
+
+    }
+
+
+        document.forms[0].addEventListener('submit',function(event) { clear(event); });
+
+        document.forms[0].travelDate.value = new Date().toDateInputValue();
+
+        document.forms[0].travelTime.value = new Date().toTimeInputValue();
+
+       {% autoescape off %}
+
+           window.stations = {{ stations }};
+            window.results = {{ resultdata }};
+
+            {% endautoescape %}
+
+
+    if (window.results != false){
+
+         document.getElementById('summary').value += "Departs " + window.stations[0].toString() + "at: " + window.results[0].toString();
+         document.getElementById('summary').value += "\n";
+         document.getElementById('summary').value += "Arrives at " + window.stations[1].toString() + "at: " + window.results[1].toString();
+    }
+
+</script>
+</body>
+</html>
